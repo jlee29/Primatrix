@@ -76,8 +76,8 @@ class Dataset(object):
         self.train_data_seen = pd.DataFrame(data={'seen': 0}, index=self.y_train.index)
         
         # test the generator
-        if test:
-            self._test_batch_generator()
+        #if test:
+        #    self._test_batch_generator()
     
     def prepare_test_data_and_prediction(self):
         """
@@ -140,22 +140,24 @@ class Dataset(object):
         
         while 1:
             # get videos
-            start = self.batch_size*self.batch_num
-            stop = self.batch_size*(self.batch_num + 1)
+            #start = self.batch_size*self.batch_num
+            #stop = self.batch_size*(self.batch_num + 1)
+            batch_indices = np.random.choice(range(num_train), batch_size, replace=True)
             
             # print batch ranges if testing
-            if self.test:
-                print("batch {self.batch_num}:\t{start} --> {stop-1}")
+            #if self.test:
+            #    print("batch {self.batch_num}:\t{start} --> {stop-1}")
             
-            x_paths = self.X_train.iloc[start:stop]
+            x_paths = self.X_train.iloc[batch_indices]
             x, failed = self._get_video_batch(x_paths, 
+                                              True,
                                               reduce_frames=reduce_frames, 
                                               verbose=verbose)
             x_paths = x_paths.drop(failed)
             self.bad_videos += failed
 
             # get labels
-            y = self.y_train.iloc[start:stop]
+            y = self.y_train.iloc[batch_indices]
             y = y.drop(failed)
 
             # check match for labels and videos
@@ -192,7 +194,8 @@ class Dataset(object):
             stop = self.batch_size*(self.val_batch_num + 1)
             
             x_paths = self.X_train.iloc[start:stop]
-            x, failed = self._get_video_batch(x_paths, 
+            x, failed = self._get_video_batch(x_paths,
+                                              False,
                                               reduce_frames=reduce_frames, 
                                               verbose=verbose)
             x_paths = x_paths.drop(failed)
@@ -234,11 +237,12 @@ class Dataset(object):
             stop = self.batch_size*(self.test_batch_num + 1)
             
             x_ids = self.X_test_ids[start:stop]
-            x_paths = pd.DataFrame(data=[os.path.join(test_dir, "{filename}") for filename in x_ids], 
+            x_paths = pd.DataFrame(data=[os.path.join(test_dir, filename) for filename in x_ids], 
                                    columns=['filepath'],
                                    index=x_ids)
             #print(x_paths)
-            x, failed = self._get_video_batch(x_paths, 
+            x, failed = self._get_video_batch(x_paths,
+                                              False,
                                               reduce_frames=reduce_frames, 
                                               verbose=verbose)
             
@@ -250,7 +254,7 @@ class Dataset(object):
             yield x
 
         
-    def _get_video_batch(self, x_paths, as_grey=True, reduce_frames=True, verbose=False):
+    def _get_video_batch(self, x_paths, is_training, as_grey=True, reduce_frames=True, verbose=False):
         """
         Returns ndarray of shape (batch_size, num_frames, width, height, channels).
         If as_grey, then channels dimension is squeezed out.
@@ -274,15 +278,18 @@ class Dataset(object):
             if reduce_frames:
                 frames = np.arange(0, video.shape[0], 2)
                 try:
-                    video = video[frames, :, :] #.squeeze()  
-                    videos.append(video)
+                    video = video[frames, :, :] #.squeeze() 
+                    videos.append(self.augment(video))
+                    #print(video.shape)
+                    #videos.append(video)
                 
                 except IndexError:
                     if verbose:
                         print("FAILED TO REDUCE: {filepath}")
                     print("id:\t{obf_id}")
                     failed.append(obf_id)
-                       
+            else:
+                videos.append(self.augment(video))                       
         return np.array(videos), failed
     
     def _fill_video(self, video):
@@ -301,6 +308,26 @@ class Dataset(object):
             filler_frames[i, :, :] = video[next(source_frame), :, :]
 
         return np.concatenate((video, filler_frames), axis=0)
+    
+    def augment(self, x):
+        #matrix_size = x.shape[1]
+        # Creating Random variables
+        #roller = np.round(float(matrix_size/8))
+        #ox, oy = np.random.randint(-roller, roller+1, 2)
+        #print(x.shape)
+        do_flip = np.random.randn() > 0
+        pow_rand = np.clip(0.05*np.random.randn(), -.2, .2) + 1.0
+        add_rand = np.clip(np.random.randn() * 25., -100., 100.)
+        # Rolling
+        #x = np.roll(np.roll(x, ox, 0), oy, 1)
+        # Left-right Flipping
+        if do_flip:
+            x = np.transpose(np.fliplr(np.transpose(x, [1,2,0,3])), [2,0,1,3])
+        # Raising/Lowering to a power
+        x = x ** pow_rand
+        # Random adding of shade.
+        x += add_rand
+        return x
     
 
     def _test_batch_generator(self):
