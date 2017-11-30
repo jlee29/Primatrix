@@ -184,7 +184,7 @@ class Dataset(object):
         
         reduce_frames = self.reduce_frames
         batch_size = self.batch_size
-        num_train = self.y_train.shape[0]
+        num_val = self.y_val.shape[0]
         
         
         
@@ -193,7 +193,7 @@ class Dataset(object):
             start = self.batch_size*self.val_batch_num
             stop = self.batch_size*(self.val_batch_num + 1)
             
-            x_paths = self.X_train.iloc[start:stop]
+            x_paths = self.X_val.iloc[start:stop]
             x, failed = self._get_video_batch(x_paths,
                                               False,
                                               reduce_frames=reduce_frames, 
@@ -202,7 +202,7 @@ class Dataset(object):
             self.bad_videos += failed
 
             # get labels
-            y = self.y_train.iloc[start:stop]
+            y = self.y_val.iloc[start:stop]
             y = y.drop(failed)
 
             # check match for labels and videos
