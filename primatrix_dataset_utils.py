@@ -257,7 +257,7 @@ class Dataset(object):
             yield x
 
         
-    def _get_video_batch(self, x_paths, is_training, as_grey=True, reduce_frames=True, verbose=False):
+    def _get_video_batch(self, x_paths, is_training, as_grey=False, reduce_frames=True, verbose=False):
         """
         Returns ndarray of shape (batch_size, num_frames, width, height, channels).
         If as_grey, then channels dimension is squeezed out.
@@ -303,7 +303,7 @@ class Dataset(object):
         num_to_fill = target_num_frames - video.shape[0]
 
         # preallocate array for filler
-        filler_frames = np.zeros(shape=(num_to_fill, self.width, self.height, 1)) # assumes grey
+        filler_frames = np.zeros(shape=(num_to_fill, self.width, self.height, 3)) # assumes grey
 
         # fill frames
         source_frame = cycle(np.arange(0, video.shape[0]))
