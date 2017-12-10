@@ -190,10 +190,12 @@ class Dataset(object):
         
         while 1:
             # get videos
-            start = self.batch_size*self.val_batch_num
-            stop = self.batch_size*(self.val_batch_num + 1)
+            batch_indices = np.random.choice(range(num_val), batch_size, replace=False)
+            #start = self.batch_size*self.val_batch_num
+            #stop = self.batch_size*(self.val_batch_num + 1)
             
-            x_paths = self.X_val.iloc[start:stop]
+            #x_paths = self.X_val.iloc[start:stop]
+            x_paths = self.X_val.iloc[batch_indices]
             x, failed = self._get_video_batch(x_paths,
                                               False,
                                               reduce_frames=reduce_frames, 
@@ -202,7 +204,8 @@ class Dataset(object):
             self.bad_videos += failed
 
             # get labels
-            y = self.y_val.iloc[start:stop]
+            #y = self.y_val.iloc[start:stop]
+            y = self.y_val.iloc[batch_indices]
             y = y.drop(failed)
 
             # check match for labels and videos
