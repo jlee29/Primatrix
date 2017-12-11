@@ -323,7 +323,7 @@ class Dataset(object):
         #print(x.shape)
         do_flip = np.random.randn() > 0
         #pow_rand = np.clip(0.05*np.random.randn(), -.2, .2) + 1.0
-        add_rand = np.clip(np.random.randn() * 12.75, -0.-x.min(), 255.-x.max())
+        add_rand = np.clip(np.random.randn() * 16., -0.-x.min(), 255.-x.max())
         # Rolling
         #x = np.roll(np.roll(x, ox, 0), oy, 1)
         # Left-right Flipping
