@@ -68,7 +68,7 @@ class Dataset(object):
         self.val_batch_num = next(self.val_batch_idx)
         
         self.num_test_samples = self.X_test_ids.shape[0]
-        self.num_test_batches = self.num_test_samples // self.batch_size
+        self.num_test_batches = self.num_test_samples // self.batch_size+1
         self.test_batch_idx = cycle(range(self.num_test_batches))
         self.test_batch_num = next(self.test_batch_idx)
     
