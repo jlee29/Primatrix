@@ -292,7 +292,11 @@ class Dataset(object):
                     print("id:\t{obf_id}")
                     failed.append(obf_id)
             else:
-                videos.append(self.augment(video))                       
+                video = (video - 127.5)/127.5
+                if is_training:
+                    videos.append(self.augment(video))    
+                else:
+                    videos.append(video)
         return np.array(videos), failed
     
     def _fill_video(self, video):
@@ -320,7 +324,7 @@ class Dataset(object):
         #print(x.shape)
         do_flip = np.random.randn() > 0
         pow_rand = np.clip(0.05*np.random.randn(), -.2, .2) + 1.0
-        add_rand = np.clip(np.random.randn() * 16., -64., 64.)
+        add_rand = np.clip(np.random.randn() * 0.1, -.4, .4)
         # Rolling
         #x = np.roll(np.roll(x, ox, 0), oy, 1)
         # Left-right Flipping
