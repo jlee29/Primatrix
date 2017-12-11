@@ -323,15 +323,15 @@ class Dataset(object):
         #ox, oy = np.random.randint(-roller, roller+1, 2)
         #print(x.shape)
         do_flip = np.random.randn() > 0
-        pow_rand = np.clip(0.05*np.random.randn(), -.2, .2) + 1.0
-        add_rand = np.clip(np.random.randn() * 0.1, -.4, .4)
+        #pow_rand = np.clip(0.05*np.random.randn(), -.2, .2) + 1.0
+        add_rand = np.clip(np.random.randn() * 0.1, -(1. + x.min()), 1. - x.max())
         # Rolling
         #x = np.roll(np.roll(x, ox, 0), oy, 1)
         # Left-right Flipping
         if do_flip:
             x = np.transpose(np.fliplr(np.transpose(x, [1,2,0,3])), [2,0,1,3])
         # Raising/Lowering to a power
-        x = x ** pow_rand
+        #x = x ** pow_rand
         # Random adding of shade.
         x += add_rand
         return x
