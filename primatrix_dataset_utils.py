@@ -293,9 +293,9 @@ class Dataset(object):
                     failed.append(obf_id)
             else:
                 if is_training:
-                    videos.append(self.augment(video))    
+                    videos.append(self.augment(video.astype(np.float32)))  
                 else:
-                    videos.append(video)
+                    videos.append(video.astype(np.float32))
         return np.array(videos), failed
     
     def _fill_video(self, video):
