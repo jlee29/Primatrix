@@ -3,6 +3,7 @@ import numpy as np
 import os
 import pandas as pd
 import skvideo.io as skv
+np.random.seed(191724)
 
 from warnings import filterwarnings
 filterwarnings('ignore')
@@ -19,6 +20,8 @@ class Dataset(object):
         self.reduce_frames = reduce_frames
         self.val_size = val_size
         self.batch_size = batch_size
+        self.classlist = [line for line in open('submission_format.csv')][0].strip().split(',')[1:]
+        self.classmap = {self.classlist[i]: i for i in range(len(self.classlist))}
         
         # boolean for test mode
         self.test = test
@@ -27,7 +30,7 @@ class Dataset(object):
         if self.dataset_type == 'nano':
             self.height = 16
             self.width = 16
-        elif self.dataset_type == 'micro':
+        elif self.dataset_type == 'micro' or self.dataset_type == 'micro-overfit':
             self.height = 64
             self.width = 64
         elif self.dataset_type == 'raw':
@@ -44,40 +47,43 @@ class Dataset(object):
             self.num_frames = 30
         
         # for tracking errors
-        self.bad_videos = []
+        #self.bad_videos = []
         
         # training and validation
         self.X_train, self.X_val, self.y_train, self.y_val = self.split_training_into_validation()
     
         # params of data based on training data
         self.num_classes = self.y_train.shape[1]
-        self.class_names = self.y_train.columns.values
         assert self.num_classes == self.y_val.shape[1]
         self.num_samples = self.y_train.shape[0]
         self.num_batches = self.num_samples // self.batch_size
         
         # test paths and prediction matrix
-        self.X_test_ids, self.predictions = self.prepare_test_data_and_prediction()
+        
         
         # variables to make batch generating easier
-        self.batch_idx = cycle(range(self.num_batches))
-        self.batch_num = next(self.batch_idx)
+        #self.batch_idx = cycle(range(self.num_batches))
+        #self.batch_num = next(self.batch_idx)
         
         self.num_val_batches = self.y_val.shape[0] // self.batch_size
-        self.val_batch_idx = cycle(range(self.num_val_batches))
-        self.val_batch_num = next(self.val_batch_idx)
+        #self.val_batch_idx = cycle(range(self.num_val_batches))
+        #self.val_batch_num = next(self.val_batch_idx)
         
-        self.num_test_samples = self.X_test_ids.shape[0]
-        self.num_test_batches = self.num_test_samples // self.batch_size+1
-        self.test_batch_idx = cycle(range(self.num_test_batches))
-        self.test_batch_num = next(self.test_batch_idx)
+
     
         # for testing iterator in test_mode
-        self.train_data_seen = pd.DataFrame(data={'seen': 0}, index=self.y_train.index)
+        #self.train_data_seen = pd.DataFrame(data={'seen': 0}, index=self.y_train.index)
         
         # test the generator
         #if test:
         #    self._test_batch_generator()
+        
+    def prepare_predict(self):
+        self.X_test_ids, self.predictions = self.prepare_test_data_and_prediction()
+        self.num_test_samples = self.X_test_ids.shape[0]
+        self.num_test_batches = self.num_test_samples // self.batch_size+1
+        self.test_batch_idx = cycle(range(self.num_test_batches))
+        self.test_batch_num = next(self.test_batch_idx)
     
     def prepare_test_data_and_prediction(self):
         """
@@ -110,16 +116,22 @@ class Dataset(object):
         
         # load training labels
         labelpath = os.path.join(datapath, 'train_labels.csv')
-        labels = pd.read_csv(labelpath, index_col='filename')
+        lines = [line.strip().split(',') for line in open(labelpath)][1:]
+        subject_ids = np.array([i[0] for i in lines])
+        labels = np.array([i[1:] for i in lines]).astype(np.float32)
+        
+        
+        #labels = pd.read_csv(labelpath, index_col='filename')
         
         # load subject labels (assumed to have same index as training labels)
-        subjpath = os.path.join(datapath, dataset_type)
+        #subjpath = os.path.join(datapath, dataset_type)
         #subject_ids = pd.read_csv(subjpath, index_col=0)
-        subject_ids = pd.DataFrame(data=subjpath, columns=['filepath'], index=labels.index)
-        for row in subject_ids.itertuples():
-            subject_ids.loc[row.Index] = os.path.join(row.filepath, row.Index)       
+        #subject_ids = pd.DataFrame(data=subjpath, columns=['filepath'], index=labels.index)
+        #for row in subject_ids.itertuples():
+        #    subject_ids.loc[row.Index] = os.path.join(row.filepath, row.Index)       
         
         # split
+        #print(labels)
         X_train, X_val, y_train, y_val = multilabel_train_test_split(subject_ids, labels, size=val_size, min_count=1, seed=0)
         
         # check distribution is maintained
@@ -148,34 +160,37 @@ class Dataset(object):
             #if self.test:
             #    print("batch {self.batch_num}:\t{start} --> {stop-1}")
             
-            x_paths = self.X_train.iloc[batch_indices]
-            x, failed = self._get_video_batch(x_paths, 
+            x_paths = self.X_train[batch_indices]
+            y = self.y_train[batch_indices]
+            x = self._get_video_batch(x_paths, 
                                               True,
                                               reduce_frames=reduce_frames, 
-                                              verbose=verbose)
-            x_paths = x_paths.drop(failed)
-            self.bad_videos += failed
+                                              verbose=verbose,y=y)
+            #x_paths = x_paths.drop(failed)
+            #self.bad_videos += failed
 
             # get labels
-            y = self.y_train.iloc[batch_indices]
-            y = y.drop(failed)
+            
+            #y = y.drop(failed)
 
             # check match for labels and videos
-            assert (x_paths.index==y.index).all()
+            #assert (x_paths.index==y.index).all()
             assert x.shape[0] == y.shape[0]
 
             # report failures if verbose
+            '''
             if len(failed) != 0 and verbose==True:
                 print("\t\t\t*** ERROR FETCHING BATCH {self.batch_num}/{self.num_batches} ***")
                 print("Dropped {len(failed)} videos:")
                 for failure in failed:
                     print("\t{failure}\n\n")
+            '''
 
             # increment batch number
-            self.batch_num = next(self.batch_idx)
+            #self.batch_num = next(self.batch_idx)
             
             # update dataframe of seen training indices for testing
-            self.train_data_seen.loc[y.index.values] = 1
+            #self.train_data_seen.loc[y.index.values] = 1
             yield (x, y)
             
             
@@ -195,32 +210,34 @@ class Dataset(object):
             #stop = self.batch_size*(self.val_batch_num + 1)
             
             #x_paths = self.X_val.iloc[start:stop]
-            x_paths = self.X_val.iloc[batch_indices]
-            x, failed = self._get_video_batch(x_paths,
+            x_paths = self.X_val[batch_indices]
+            x = self._get_video_batch(x_paths,
                                               False,
                                               reduce_frames=reduce_frames, 
                                               verbose=verbose)
-            x_paths = x_paths.drop(failed)
-            self.bad_videos += failed
+            #x_paths = x_paths.drop(failed)
+            #self.bad_videos += failed
 
             # get labels
             #y = self.y_val.iloc[start:stop]
-            y = self.y_val.iloc[batch_indices]
-            y = y.drop(failed)
+            y = self.y_val[batch_indices]
+            #y = y.drop(failed)
 
             # check match for labels and videos
-            assert (x_paths.index==y.index).all()
+            #assert (x_paths.index==y.index).all()
             assert x.shape[0] == y.shape[0]
 
             # report failures if verbose
+            '''
             if len(failed) != 0 and verbose==True:
                 print("\t\t\t*** ERROR FETCHING BATCH {self.batch_num}/{self.num_batches} ***")
                 print("Dropped {len(failed)} videos:")
                 for failure in failed:
                     print("\t{failure}\n\n")
+            '''
 
             # increment batch number
-            self.val_batch_num = next(self.val_batch_idx)
+            #self.val_batch_num = next(self.val_batch_idx)
             
             yield (x, y)
             
@@ -244,7 +261,7 @@ class Dataset(object):
                                    columns=['filepath'],
                                    index=x_ids)
             #print(x_paths)
-            x, failed = self._get_video_batch(x_paths,
+            x = self._get_video_batch(x_paths,
                                               False,
                                               reduce_frames=reduce_frames, 
                                               verbose=verbose)
@@ -257,25 +274,27 @@ class Dataset(object):
             yield x
 
         
-    def _get_video_batch(self, x_paths, is_training, as_grey=False, reduce_frames=True, verbose=False):
+    def _get_video_batch(self, x_paths, is_training, as_grey=False, reduce_frames=True, verbose=False, y=None):
         """
         Returns ndarray of shape (batch_size, num_frames, width, height, channels).
         If as_grey, then channels dimension is squeezed out.
         """
 
         videos = []
-        failed = []
-        
-        for row in x_paths.itertuples():
-            filepath = row.filepath
-            obf_id = row.Index
+        #failed = []
+        i=0
+        for f in x_paths:
+            filepath = 'micro/' + f
+            assert x_paths[i] == f
             
             # load
             video = skv.vread(filepath, as_grey=as_grey)
             
             # fill video if neccessary
             if video.shape[0] < self.num_frames:
-                video = self._fill_video(video) 
+                video = self._fill_video(video)
+            
+            #videos.append(video)
             
             # reduce
             if reduce_frames:
@@ -292,11 +311,21 @@ class Dataset(object):
                     print("id:\t{obf_id}")
                     failed.append(obf_id)
             else:
+                #videos.append(video)
+                
                 if is_training:
-                    videos.append(self.augment(video.astype(np.float32)))  
+                    if (y[i, self.classmap['blank']] == 1 or y[i, self.classmap['duiker']] == 1 or
+                       y[i, self.classmap['other (primate)']] == 1 or y[i, self.classmap['human']] == 1):  
+                        videos.append(video)
+                    else:                        
+                        videos.append(self.augment(video))  
                 else:
-                    videos.append(video.astype(np.float32))
-        return np.array(videos), failed
+                    videos.append(video)
+            i += 1
+            
+            
+            
+        return np.array(videos)
     
     def _fill_video(self, video):
         """Returns a video with self.num_frames given at least one frame."""
@@ -323,16 +352,20 @@ class Dataset(object):
         #print(x.shape)
         do_flip = np.random.randn() > 0
         #pow_rand = np.clip(0.05*np.random.randn(), -.2, .2) + 1.0
-        add_rand = np.clip(np.random.randn() * 16., -0.-x.min(), 255.-x.max())
+        #maxim = x.max()
+        #minim = x.min()
+        #add_max = max(minim, 255.-maxim)
+        #add_std = min(add_max/2., 16.)
+        #add_rand = np.clip(np.random.randn() * add_std, -minim, 255.-maxim)
         # Rolling
         #x = np.roll(np.roll(x, ox, 0), oy, 1)
         # Left-right Flipping
         if do_flip:
             x = np.transpose(np.fliplr(np.transpose(x, [1,2,0,3])), [2,0,1,3])
+        #x += add_rand
         # Raising/Lowering to a power
         #x = x ** pow_rand
         # Random adding of shade.
-        x += add_rand
         return x
     
 

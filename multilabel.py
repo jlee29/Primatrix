@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+np.random.seed(191724)
 
 def multilabel_sample(y, size=1000, min_count=5, seed=None):
     """ Takes a matrix of binary labels `y` and returns
@@ -9,6 +10,8 @@ def multilabel_sample(y, size=1000, min_count=5, seed=None):
         The sample is guaranteed to have > `min_count` of
         each label.
     """
+    #print(y)
+    #return
     try:
         if (np.unique(y).astype(int) != np.array([0, 1])).all():
             raise ValueError()
@@ -74,8 +77,10 @@ def multilabel_train_test_split(X, Y, size, min_count=5, seed=None):
 
     test_set_idxs = multilabel_sample(Y, size=size, min_count=min_count, seed=seed)
     train_set_idxs = np.setdiff1d(index, test_set_idxs)
+    #test_set_mask = 
 
-    test_set_mask = index.isin(test_set_idxs)
-    train_set_mask = ~test_set_mask
+    #test_set_mask = index.isin(test_set_idxs)
+    #train_set_mask = ~test_set_mask
 
-    return (X[train_set_mask], X[test_set_mask], Y[train_set_mask], Y[test_set_mask])
+    #return (X[train_set_mask], X[test_set_mask], Y[train_set_mask], Y[test_set_mask])
+    return X[train_set_idxs], X[test_set_idxs], Y[train_set_idxs], Y[test_set_idxs]
